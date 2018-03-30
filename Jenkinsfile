@@ -26,7 +26,7 @@ pipeline {
           post {
             always {
               // junit 'brakeman-output.json'
-              publishHTML([reportDir: 'brakeman/reports', reportFiles: 'brakeman-output.html', reportName: 'Brakeman Report', reportTitles: '', allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false])
+              publishHTML([reportDir: '', reportFiles: 'brakeman-output.html', reportName: 'Brakeman Report', reportTitles: '', allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false])
             }
           }
         }

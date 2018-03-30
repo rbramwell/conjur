@@ -16,9 +16,9 @@ shift # past argument or value
 done
 
 if [[ $RUN_BRAKEMAN = true ]]; then
-  mkdir -p brakeman/reports
-  chmod -R 0777 brakeman/reports
-  docker run -v "$(pwd):/tmp/" --rm -w /tmp/ codeclimate/codeclimate-brakeman brakeman -o brakeman/reports/brakeman-output.html
+  # mkdir -p brakeman/reports
+  # chmod -R 0777 brakeman/reports
+  docker run -v "$(pwd):/tmp/" --rm -w /tmp/ codeclimate/codeclimate-brakeman brakeman -f html > brakeman-output.html
 fi
 
 
