@@ -1,0 +1,9 @@
+#!/bin/bash -e
+mkdir -p "$HOME/.conjur"
+
+mounted_files=""
+for f in *.yml; do
+  mounted_files="$mounted_files -v $(pwd)/$f:/$f"
+done
+
+docker run --net="host" --rm -it -v "$HOME/.conjur:/root" $mounted_files cyberark/conjur-cli:5 "$@"
