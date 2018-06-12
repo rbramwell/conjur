@@ -1,0 +1,2 @@
+module Audit::Event
+end
