@@ -50,6 +50,8 @@ module Authentication
     attribute :security, ::Types::Any.default{ ::Authentication::Security.new }
     attribute :env, ::Types::Any.default(ENV)
     attribute :token_factory, ::Types::Any.default{ TokenFactory.new }
+    attribute :role_cls, ::Types::Any.default{ ::Role }
+    attribute :audit_log, ::Types::Any.default{ ::AuditLog }
 
     def conjur_token(input)
       authenticator = authenticators[input.authenticator_name]
@@ -58,10 +60,44 @@ module Authentication
       validate_security(input)
       validate_credentials(input, authenticator)
 
+      audit_success(input)
       new_token(input)
+
+    # I might do this slightly differently, but it will work for time
+    # being / to get the ideas across
+    #
+    rescue => e
+      audit_failure(input, e)
+      raise e
     end
 
     private
+
+    def audit_success(input)
+      audit_log.record_authn_event(
+        role_id: audit_role(input.username, input.account),
+        webservice_id: input.webservice.resource_id,
+        authenticator_name: input.authenticator_name,
+        type: :allow
+      )
+    end
+
+    def audit_failure(input, err)
+      audit_log.record_authn_event(
+        role_id: audit_role(input.username, input.account),
+        webservice_id: input.webservice.resource_id,
+        authenticator_name: input.authenticator_name,
+        type: :deny,
+        message: err.message
+      )
+    end
+
+    # TODO this shouldn't be raising an error, should be worked into the
+    # validation, but not hugely important now
+    #
+    def audit_role(username, account)
+      role_cls.by_login(username, account: account) or raise Unauthorized
+    end
 
     def validate_authenticator_exists(input, authenticator)
       raise AuthenticatorNotFound, input.authenticator_name unless authenticator

@@ -8,15 +8,46 @@
 Dir[File.join("./app/domain/authentication/**/", "*.rb")].each do |f|
   require f
 end
+  
+
+# Put this in another file in an appropriate place
+#
+# Note this is just a wrapper over Event::Authn to clarify the naming
+# and make the runtime inputs explicit instead of scattered.
+#
+# Some version of this could maybe replace what is now Audit::Event::Authn
+#
+class AuditLog
+
+  # you can add other methods for other kinds of events Note that "username",
+  # while arguably not the most appropriate name since it also includes
+  # hosts, is what I'm using elsewhere, and I think consistency trumps the
+  # perfect name.  Feel free to rename it everywhere though if you have
+  # something better.  I think "id" is too vague.
+  #
+  # These arguments sure look like an object to me :)
+  #
+  # type (bad placeholder name) is :deny or :allow or whatever
+  def self.record_authn_event(role_id:, webservice_id:, authenticator_name:,
+                              type:, message: nil)
+    event = ::Audit::Event::Authn.new(
+      role: role_id,
+      authenticator_name: authenticator_name,
+      service: webservice_id
+    )
+    event.emit(type) # add whatever the error message logic is
+  end
+end
 
 class AuthenticateController < ApplicationController
 
   def authenticate
     authentication_token = ::Authentication::Strategy.new(
       authenticators: ::Authentication::InstalledAuthenticators.new(ENV),
-      security: nil,
+      audit_log: AuditLog,
+      security: nil,            # <== Did you turn this off for testing?
       env: ENV,
-      role_class: ::Authentication::MemoizedRole,
+      role_class: ::Role,
       token_factory: TokenFactory.new
     ).conjur_token(
       ::Authentication::Strategy::Input.new(
@@ -27,40 +58,11 @@ class AuthenticateController < ApplicationController
         password:           request.body.read
       )
     )
-    message.emit :allow
     render json: authentication_token
   rescue => e
     logger.debug("Authentication Error: #{e.message}")
-    message.emit :deny
     raise Unauthorized
-  ensure
-    # in essence an assertion, should never happen
-    message.emitted? or fail "audit message not emitted"
-  end
-  
-  private
-  
-  def message
-    @message ||= Audit::Event::Authn.new \
-      role: target_role,
-      authenticator_name: authenticator_name,
-      service: service
   end
 
-  def target_role
-    @target_role ||= Role.by_login(params[:id], account: account) or raise Unauthorized
-  end
-  
-  def authenticator_name
-    @authenticator_name ||= params[:authenticator]
-  end
-  
-  def account
-    @account ||= params[:account] or raise KeyError
-  end
-  
-  def service
-    @service ||= Resource[account, 'webservice'.freeze, params[:service_id]]
-  end
 end
 
